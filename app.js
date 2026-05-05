@@ -126,18 +126,40 @@ function showApp() {
 }
 
 async function initNotifications() {
-    if (!('Notification' in window)) return;
+    if (!('Notification' in window)) {
+        console.warn('Notifications not supported in this browser');
+        return;
+    }
+    
+    // Detect placeholders
+    if (typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey === 'YOUR_API_KEY') {
+        console.error('Firebase configuration is not set up. Please update firebase-config.js with your real credentials.');
+        return;
+    }
+
     try {
         const messaging = firebase.messaging();
         const permission = await Notification.requestPermission();
+        console.log('Notification permission:', permission);
+        
         if (permission === 'granted') {
-            const token = await messaging.getToken({ vapidKey: 'YOUR_VAPID_KEY' });
+            const vapidKey = 'YOUR_VAPID_KEY'; // MUST BE UPDATED
+            if (vapidKey === 'YOUR_VAPID_KEY') {
+                console.warn('VAPID Key is missing in app.js. Push notifications will not work without it.');
+                return;
+            }
+            
+            const token = await messaging.getToken({ vapidKey });
             if (token) {
+                console.log('FCM Token received:', token);
                 await API.post('/api/users/update-token', { userId: currentUser.id, token });
+                console.log('FCM Token saved to server');
+            } else {
+                console.warn('No registration token available. Request permission to generate one.');
             }
         }
     } catch (err) {
-        console.error('Notification error:', err);
+        console.error('Notification initialization failed:', err);
     }
 }
 

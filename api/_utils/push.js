@@ -4,37 +4,59 @@ const { kv } = require('@vercel/kv');
 // Initialize Firebase Admin
 if (!admin.apps.length) {
     try {
-        // This expects FIREBASE_SERVICE_ACCOUNT env variable
+        if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
+            throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is missing');
+        }
         const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount)
         });
+        console.log('Firebase Admin initialized successfully');
     } catch (e) {
-        console.error('Firebase Admin initialization failed. Make sure FIREBASE_SERVICE_ACCOUNT is set.', e.message);
+        console.error('Firebase Admin initialization failed:', e.message);
     }
 }
 
 async function sendPushNotification(userId, title, body) {
-    if (!admin.apps.length) return;
+    if (!admin.apps.length) {
+        console.warn(`Cannot send push to ${userId}: Firebase Admin not initialized`);
+        return;
+    }
 
     try {
         const tokens = await kv.smembers(`tokens:${userId}`);
-        if (!tokens || tokens.length === 0) return;
+        if (!tokens || tokens.length === 0) {
+            console.log(`No push tokens found for user ${userId}`);
+            return;
+        }
 
         const message = {
             notification: { title, body },
             tokens: tokens
         };
 
-        const response = await admin.messaging().sendMulticast(message);
-        console.log(`Push sent to ${userId}: ${response.successCount} success, ${response.failureCount} failure`);
+        // Use sendEachForMulticast (FCM v1 compatible multicast)
+        const response = await admin.messaging().sendEachForMulticast(message);
+        console.log(`Push attempt for ${userId}: ${response.successCount} success, ${response.failureCount} failure`);
         
-        // Clean up invalid tokens if needed
+        // Clean up invalid tokens
         if (response.failureCount > 0) {
-            // Logic to remove failed tokens could go here
+            const tokensToRemove = [];
+            response.responses.forEach((res, idx) => {
+                if (!res.success) {
+                    const errorCode = res.error?.code;
+                    if (errorCode === 'messaging/registration-token-not-registered' || errorCode === 'messaging/invalid-registration-token') {
+                        tokensToRemove.push(tokens[idx]);
+                    }
+                }
+            });
+            if (tokensToRemove.length > 0) {
+                await Promise.all(tokensToRemove.map(t => kv.srem(`tokens:${userId}`, t)));
+                console.log(`Cleaned up ${tokensToRemove.length} invalid tokens for ${userId}`);
+            }
         }
     } catch (e) {
-        console.error('Error sending push:', e);
+        console.error(`Error in sendPushNotification for ${userId}:`, e);
     }
 }
 

@@ -16,13 +16,20 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
+if (firebaseConfig.apiKey === 'YOUR_API_KEY') {
+    console.error('[sw] Firebase configuration is NOT set up in firebase-messaging-sw.js');
+}
+
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
-  // Customize notification here
-  const notificationTitle = payload.notification.title;
+  
+  const notificationTitle = payload.notification?.title || 'نووسراوی نوێ';
   const notificationOptions = {
-    body: payload.notification.body,
-    icon: '/icon.png' // Replace with your icon
+    body: payload.notification?.body || 'تکایە داشبۆردەکەت بپشکنە',
+    icon: '/icon.png',
+    badge: '/badge.png',
+    data: payload.data, // Attach data for potential click handling
+    vibrate: [200, 100, 200]
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
