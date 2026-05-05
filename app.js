@@ -2,6 +2,7 @@
 const ADMIN_PASS = "Admin1234";
 let currentUser = JSON.parse(sessionStorage.getItem('cu')) || null;
 let pollInterval = null;
+let currentCategoryFilter = 'تەکنیکی';
 
 // ════════ API HELPERS ════════
 const API = {
@@ -103,12 +104,11 @@ function showApp() {
         switchScreen('management');
         loadUsers();
     } else if (currentUser.role === 'sender') {
-        $('nav-hub').style.display = 'flex';
         $('nav-dashboard').style.display = 'flex';
         $('nav-account').style.display = 'flex';
         navFab.style.display = 'flex';
         btnAddHeader.style.display = 'flex';
-        switchScreen('hub');
+        switchScreen('dashboard');
         startPollingTasks();
     } else if (currentUser.role === 'receiver') {
         $('nav-dashboard').style.display = 'flex';
@@ -266,6 +266,16 @@ function setupSenderEvents() {
     if (techBtn) techBtn.addEventListener('click', () => switchScreen('dashboard'));
     if (adminHubBtn) adminHubBtn.addEventListener('click', () => switchScreen('dashboard'));
 
+    // Dashboard Filter Tabs
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentCategoryFilter = tab.getAttribute('data-category');
+            loadTasks(); // Trigger re-render with new filter
+        });
+    });
+
     $('btn-submit-task').addEventListener('click', async () => {
         const title = $('task-title').value.trim();
         const note = $('task-note').value.trim();
@@ -290,16 +300,27 @@ function setupSenderEvents() {
 
 // ════════ RENDER DASHBOARD ════════
 async function renderDashboard(tasks) {
-    if (!tasks || !tasks.length) {
-        dashboardList.innerHTML = `<div class="empty-state"><i data-lucide="inbox"></i><p>هیچ نووسراوێک نییە</p></div>`;
+    if (!tasks) return;
+
+    // 1. Filter by Category
+    let filteredTasks = tasks.filter(t => t.category === currentCategoryFilter);
+
+    // 2. Filter by Receiver Status (Auto-hide done)
+    if (currentUser.role === 'receiver') {
+        filteredTasks = filteredTasks.filter(t => t.status !== 'done');
+    }
+
+    if (!filteredTasks.length) {
+        dashboardList.innerHTML = `<div class="empty-state"><i data-lucide="inbox"></i><p>هیچ نووسراوێکی ${currentCategoryFilter} نییە</p></div>`;
         lucide.createIcons(); return;
     }
+
     // Fetch all user names
     const allUsers = await API.get('/api/users');
     const userMap = {};
     allUsers.forEach(u => userMap[u.id] = u.name);
 
-    const rows = tasks.map((task, idx) => {
+    const rows = filteredTasks.map((task, idx) => {
         const isLast = idx === tasks.length - 1;
         const tagClass = task.category === 'تەکنیکی' ? 'tech' : 'admin';
         const time = new Date(Number(task.createdAt)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });

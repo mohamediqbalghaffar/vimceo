@@ -139,6 +139,31 @@ body, button, input, select, textarea, label {
     background:var(--accent); color:white; border:none;
     width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; cursor:pointer;
 }
+/* ── Dashboard Filters ── */
+.dashboard-filters {
+    display: flex;
+    background: #eef1f4;
+    padding: 4px;
+    border-radius: 14px;
+    margin-bottom: 20px;
+    gap: 4px;
+}
+.filter-tab {
+    flex: 1;
+    border: none;
+    background: none;
+    padding: 10px;
+    font-size: 0.9rem;
+    border-radius: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.filter-tab.active {
+    background: var(--surface);
+    color: var(--accent);
+    box-shadow: var(--shadow-sm);
+}
 /* ── Timeline & Cards ── */
 .timeline-container { display:flex; flex-direction:column; gap:14px; }
 .timeline-row { display:flex; gap:12px; }
