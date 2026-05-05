@@ -285,6 +285,37 @@ body, button, input, select, textarea, label {
     border:none; display:flex; align-items:center; justify-content:center;
     box-shadow:0 8px 24px rgba(15,44,37,0.3); cursor:pointer; z-index:99;
 }
+.receiver-checkbox-list {
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 10px;
+    max-height: 180px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.receiver-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: var(--surface);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.receiver-item:active { background: var(--accent-light); }
+.receiver-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+.receiver-item span {
+    font-size: 0.95rem;
+    color: var(--text);
+}
 /* ── Modals ── */
 .modal-backdrop {
     position:fixed; inset:0; background:rgba(0,0,0,0.35);

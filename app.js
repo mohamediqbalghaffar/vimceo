@@ -296,8 +296,19 @@ async function loadTasks() {
 async function openCreateModal() {
     const users = await API.get('/api/users');
     const receivers = users.filter(u => u.role === 'receiver');
-    const sel = $('task-receiver');
-    sel.innerHTML = receivers.length ? receivers.map(r => `<option value="${r.id}">${r.name}</option>`).join('') : '<option>هیچ وەرگرێک نییە</option>';
+    const container = $('receiver-list-container');
+    
+    if (!receivers.length) {
+        container.innerHTML = '<p style="font-size:0.85rem;color:var(--muted);padding:10px;">هیچ وەرگرێک نییە</p>';
+    } else {
+        container.innerHTML = receivers.map(r => `
+            <label class="receiver-item">
+                <input type="checkbox" name="receiver-choice" value="${r.id}">
+                <span>${r.name}</span>
+            </label>
+        `).join('');
+    }
+    
     $('modal-create-task').classList.remove('hidden');
     lucide.createIcons();
 }
@@ -324,19 +335,36 @@ function setupSenderEvents() {
         const note = $('task-note').value.trim();
         const link = $('task-link').value.trim();
         const category = $('task-category').value;
-        const receiverId = $('task-receiver').value;
-        if (!title || !receiverId) { showToast('بابەت و وەرگر پرکردنەوەیان پێویستە', 'error'); return; }
+        
+        const selectedCheckboxes = document.querySelectorAll('input[name="receiver-choice"]:checked');
+        const receiverIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+
+        if (!title || receiverIds.length === 0) {
+            showToast('بابەت و بەلایەنی کەم یەک وەرگر هەڵبژێرە', 'error'); return;
+        }
+
         const btn = $('btn-submit-task'); btn.disabled = true;
         try {
-            const res = await API.post('/api/tasks', { title, note, link, category, senderId: currentUser.id, receiverId });
-            if (res.error) { showToast(res.error, 'error'); } else {
+            // Send multiple requests if more than one receiver is selected
+            const promises = receiverIds.map(receiverId => 
+                API.post('/api/tasks', { title, note, link, category, senderId: currentUser.id, receiverId })
+            );
+            
+            const results = await Promise.all(promises);
+            const hasError = results.some(r => r.error);
+
+            if (hasError) {
+                showToast('هەندێک لە نووسراوەکان نەنێردران', 'error');
+            } else {
                 $('task-title').value = ''; $('task-note').value = ''; $('task-link').value = '';
                 $('modal-create-task').classList.add('hidden');
-                showToast('نووسراو نێردرا ✓');
+                showToast(`${receiverIds.length > 1 ? 'نووسراوەکان نێردران ✓' : 'نووسراو نێردرا ✓'}`);
                 switchScreen('dashboard');
                 loadTasks();
             }
-        } catch (e) { showToast('کێشەی پەیوەندی', 'error'); }
+        } catch (e) {
+            showToast('کێشەی پەیوەندی', 'error');
+        }
         btn.disabled = false;
     });
 }
