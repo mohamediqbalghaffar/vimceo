@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ckb" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>VIM CEO - HTS</title>
+    <meta name="description" content="VIM CEO - سیستەمی بەڕێوەبردنی پەیامەکان بۆ HTS">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#f7f9fb">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- ════════════ SPLASH SCREEN ════════════ -->
+    <div id="splash-screen" class="splash-screen">
+        <div class="splash-logo">
+            <span>VIM</span><span class="splash-ceo">CEO</span>
+        </div>
+        <p class="splash-company">HTS</p>
+        <div class="splash-loader"><div class="loader-bar"></div></div>
+    </div>
+
+    <!-- ════════════ LOGIN SCREEN ════════════ -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-card">
+            <div class="login-logo">
+                <span>VIM</span><span class="accent-text">CEO</span>
+            </div>
+            <p class="login-subtitle">چوونەژوورەوە بۆ سیستەم</p>
+
+            <div class="login-tabs">
+                <button class="tab-btn active" id="tab-user">بەکارهێنەر</button>
+                <button class="tab-btn" id="tab-admin">ئادمین</button>
+            </div>
+
+            <!-- User Login -->
+            <div id="login-user-form" class="login-form active">
+                <div class="form-group">
+                    <label>بەکارهێنەر هەڵبژێرە</label>
+                    <div class="select-wrapper">
+                        <select id="login-user-select">
+                            <option value="">چاوەڕوانە...</option>
+                        </select>
+                        <i data-lucide="chevron-down" class="select-icon"></i>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>تێپەڕەوشە</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="login-user-pass" placeholder="تێپەڕەوشەت بنووسە...">
+                        <button type="button" class="password-toggle" onclick="togglePassword('login-user-pass', this)">
+                            <i data-lucide="eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <button class="btn-primary" id="btn-login-user">
+                    <span>چوونەژوورەوە</span>
+                    <i data-lucide="log-in"></i>
+                </button>
+            </div>
+
+            <!-- Admin Login -->
+            <div id="login-admin-form" class="login-form">
+                <div class="form-group">
+                    <label>تێپەڕەوشەی ئادمین</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="login-admin-pass" placeholder="تێپەڕەوشە بنووسە...">
+                        <button type="button" class="password-toggle" onclick="togglePassword('login-admin-pass', this)">
+                            <i data-lucide="eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <button class="btn-primary" id="btn-login-admin">
+                    <span>چوونەژوورەوەی ئادمین</span>
+                    <i data-lucide="shield"></i>
+                </button>
+            </div>
+
+            <div id="login-error" class="login-error"></div>
+        </div>
+    </div>
+
+    <!-- ════════════ MAIN APP ════════════ -->
+    <div id="app" class="app-container" style="display: none;">
+
+        <!-- Top Bar -->
+        <div class="app-top-bar">
+            <span id="current-user-name" class="greeting-text"></span>
+            <button id="btn-logout" class="icon-btn logout-btn">
+                <i data-lucide="log-out"></i>
+            </button>
+        </div>
+
+        <!-- Screen Container -->
+        <main id="screen-container">
+
+            <!-- ── Screen: Hub ── -->
+            <section id="screen-hub" class="screen">
+                <header class="screen-header">
+                    <h1>VIM CEO</h1>
+                    <p class="header-sub">HTS</p>
+                </header>
+                <div class="hub-content" id="hub-content">
+                    <button class="hub-btn tech-btn" id="btn-tech">
+                        <i data-lucide="settings-2"></i>
+                        <span>تەکنیکی</span>
+                    </button>
+                    <button class="hub-btn admin-btn" id="btn-admin-hub">
+                        <i data-lucide="briefcase"></i>
+                        <span>کارگێڕی</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- ── Screen: Dashboard ── -->
+            <section id="screen-dashboard" class="screen">
+                <header class="header-dashboard">
+                    <div class="header-top">
+                        <div class="month-selector">
+                            <span id="current-month-display"></span>
+                            <i data-lucide="chevron-down"></i>
+                        </div>
+                        <button class="icon-btn"><i data-lucide="more-horizontal"></i></button>
+                    </div>
+                    <div class="date-selector" id="date-selector"></div>
+                    <div class="section-header">
+                        <h2>خشتەی ئەمڕۆ</h2>
+                        <button class="btn-add-small" id="btn-add-task-header" style="display: none;">
+                            <i data-lucide="plus"></i>
+                        </button>
+                    </div>
+                </header>
+                <div class="dashboard-content" id="dashboard-list"></div>
+            </section>
+
+            <!-- ── Screen: Management (Admin) ── -->
+            <section id="screen-management" class="screen">
+                <header class="screen-header">
+                    <h1>بەڕێوەبردن</h1>
+                    <p class="header-sub">بەڕێوەبردنی بەکارهێنەران</p>
+                </header>
+                <div class="management-content">
+                    <div class="form-card">
+                        <h3 class="form-card-title">زیادکردنی بەکارهێنەر</h3>
+                        <div class="form-group">
+                            <label>ناوی بەکارهێنەر</label>
+                            <input type="text" id="new-user-name" placeholder="ناو بنووسە...">
+                        </div>
+                        <div class="form-group">
+                            <label>تێپەڕەوشە</label>
+                            <div class="password-wrapper">
+                                <input type="password" id="new-user-pass" placeholder="تێپەڕەوشە دابنێ...">
+                                <button type="button" class="password-toggle" onclick="togglePassword('new-user-pass', this)">
+                                    <i data-lucide="eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>جۆری هەژمار</label>
+                            <div class="select-wrapper">
+                                <select id="new-user-role">
+                                    <option value="sender">نێرەر (CEO)</option>
+                                    <option value="receiver">وەرگر (فەرمانبەر)</option>
+                                </select>
+                                <i data-lucide="chevron-down" class="select-icon"></i>
+                            </div>
+                        </div>
+                        <button class="btn-primary" id="add-user-btn">
+                            <span>زیادکردن</span>
+                            <i data-lucide="user-plus"></i>
+                        </button>
+                    </div>
+
+                    <div class="users-section">
+                        <h3 class="section-title">بەکارهێنەران</h3>
+                        <div class="account-list" id="account-list">
+                            <div class="loading-indicator">
+                                <div class="spinner"></div>
+                                <span>چاوەڕوانبە...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ── Screen: Profile ── -->
+            <section id="screen-account" class="screen">
+                <header class="screen-header">
+                    <h1>پڕۆفایل</h1>
+                </header>
+                <div class="profile-content">
+                    <div class="profile-avatar-wrap">
+                        <img id="profile-avatar" src="" alt="Avatar">
+                        <div class="profile-avatar-badge" id="profile-role-badge"></div>
+                    </div>
+                    <h2 id="profile-name" class="profile-name"></h2>
+                    <p id="profile-role" class="profile-role-text"></p>
+
+                    <div class="profile-stats" id="profile-stats">
+                        <!-- Populated by JS -->
+                    </div>
+
+                    <button id="btn-logout-profile" class="btn-danger">
+                        <i data-lucide="log-out"></i>
+                        <span>چوونەدەرەوە</span>
+                    </button>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- ════════ CREATE TASK MODAL ════════ -->
+        <div id="modal-create-task" class="modal-backdrop hidden">
+            <div class="modal modal-tall">
+                <div class="modal-handle"></div>
+                <h3 class="modal-title">دروستکردنی نووسراو</h3>
+                <div class="form-group" style="text-align:right">
+                    <label>بابەت <span class="required">*</span></label>
+                    <input type="text" id="task-title" placeholder="بابەت بنووسە...">
+                </div>
+                <div class="form-group" style="text-align:right">
+                    <label>تێبینی</label>
+                    <textarea id="task-note" placeholder="زانیاری زیاتر..." rows="3"></textarea>
+                </div>
+                <div class="form-group" style="text-align:right">
+                    <label>بەستەری ڕاستەوخۆ</label>
+                    <input type="url" id="task-link" placeholder="https://..." dir="ltr">
+                </div>
+                <div class="form-group" style="text-align:right">
+                    <label>جۆر <span class="required">*</span></label>
+                    <div class="select-wrapper">
+                        <select id="task-category">
+                            <option value="تەکنیکی">تەکنیکی</option>
+                            <option value="کارگێڕی">کارگێڕی</option>
+                        </select>
+                        <i data-lucide="chevron-down" class="select-icon"></i>
+                    </div>
+                </div>
+                <div class="form-group" style="text-align:right">
+                    <label>وەرگر <span class="required">*</span></label>
+                    <div class="select-wrapper">
+                        <select id="task-receiver"></select>
+                        <i data-lucide="chevron-down" class="select-icon"></i>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-cancel" onclick="document.getElementById('modal-create-task').classList.add('hidden')">پاشگەزبوونەوە</button>
+                    <button class="btn-confirm" id="btn-submit-task">
+                        <span>ناردن</span>
+                        <i data-lucide="send"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ════════ CONFIRM DONE MODAL ════════ -->
+        <div id="modal-backdrop" class="modal-backdrop hidden">
+            <div class="modal">
+                <div class="modal-icon-wrap success-icon"><i data-lucide="check-circle"></i></div>
+                <h3>ئایا تەواوی کردووە؟</h3>
+                <p>ئەم کارە وەک تەواوکراو تۆمار دەکرێت.</p>
+                <div class="modal-actions">
+                    <button class="btn-cancel" id="modal-cancel">نەخێر</button>
+                    <button class="btn-confirm" id="modal-confirm">بەڵێ، تەواوە</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ════════ BOTTOM NAVIGATION ════════ -->
+        <nav class="bottom-nav">
+            <button class="nav-item" id="nav-hub" data-screen="hub">
+                <i data-lucide="home"></i>
+                <span>سەرەتا</span>
+            </button>
+            <button class="nav-item" id="nav-dashboard" data-screen="dashboard">
+                <i data-lucide="calendar"></i>
+                <span>داشبۆرد</span>
+            </button>
+            <button class="fab-center" id="nav-fab-create" style="display: none;">
+                <i data-lucide="plus"></i>
+            </button>
+            <button class="nav-item" id="nav-management" data-screen="management">
+                <i data-lucide="users"></i>
+                <span>هەژمارەکان</span>
+            </button>
+            <button class="nav-item" id="nav-account" data-screen="account">
+                <i data-lucide="user"></i>
+                <span>پڕۆفایل</span>
+            </button>
+        </nav>
+
+    </div>
+
+    <script src="app.js"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>
