@@ -35,7 +35,6 @@ const btnAddHeader = $('btn-add-task-header');
 
 // ════════ INIT ════════
 window.addEventListener('DOMContentLoaded', () => {
-    buildDateSelector();
     setupLoginEvents();
     setupNavigation();
     setupAdminEvents();
@@ -71,26 +70,7 @@ window.togglePassword = (id, btn) => {
     lucide.createIcons();
 };
 
-// ════════ DATE SELECTOR ════════
-function buildDateSelector() {
-    const container = $('date-selector'), monthDisplay = $('current-month-display');
-    const now = new Date();
-    const months = ['کانوونی دووەم','شوبات','ئازار','نیسان','ئایار','حوزەیران','تەممووز','ئاب','ئەیلوول','تشرینی یەکەم','تشرینی دووەم','کانوونی یەکەم'];
-    monthDisplay.textContent = `${months[now.getMonth()]} ${now.getFullYear()}`;
-    container.innerHTML = '';
-    const days = ['یەک','دوو','سێ','چوار','پێنج','شەش','حەد'];
-    for (let i = -2; i <= 4; i++) {
-        const d = new Date(); d.setDate(now.getDate() + i);
-        const item = document.createElement('div');
-        item.className = `date-item${i === 0 ? ' active' : ''}`;
-        item.innerHTML = `<span>${d.getDate()}</span><small>${days[d.getDay()]}</small>`;
-        item.addEventListener('click', () => {
-            document.querySelectorAll('.date-item').forEach(x => x.classList.remove('active'));
-            item.classList.add('active');
-        });
-        container.appendChild(item);
-    }
-}
+
 
 // ════════ LOGIN ════════
 async function showLogin() {
@@ -234,7 +214,7 @@ async function loadUsers() {
             <div class="account-item">
                 <div class="account-item-info">
                     <strong>${u.name}</strong>
-                    <small>${u.role === 'sender' ? 'نێرەر (CEO)' : 'وەرگر (فەرمانبەر)'}</small>
+                    <small>${u.role === 'sender' ? 'نێرەر' : 'وەرگر'}</small>
                 </div>
                 <button class="account-del-btn" onclick="deleteUser('${u.id}','${u.name}')">
                     <i data-lucide="trash-2"></i>
@@ -391,7 +371,7 @@ function setupModalEvents() {
 // ════════ PROFILE ════════
 function renderProfile() {
     if (!currentUser) return;
-    const roleMap = { admin: 'ئادمین', sender: 'نێرەر (CEO)', receiver: 'وەرگر (فەرمانبەر)' };
+    const roleMap = { admin: 'ئادمین', sender: 'نێرەر', receiver: 'وەرگر' };
     const name = currentUser.name || 'ئادمین';
     $('profile-name').textContent = name;
     $('profile-role').textContent = roleMap[currentUser.role] || currentUser.role;
