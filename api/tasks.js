@@ -1,4 +1,5 @@
 const { kv } = require('@vercel/kv');
+const { sendPushNotification } = require('./_utils/push');
 
 module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -38,6 +39,13 @@ module.exports = async function handler(req, res) {
             const task = { id, title, note: note || '', link: link || '', category, senderId, receiverId, status: 'pending', createdAt: Date.now() };
             await kv.hset(`task:${id}`, task);
             await kv.sadd('tasks:index', id);
+            
+            // Send Notification to Receiver
+            const receiver = await kv.hgetall(`user:${receiverId}`);
+            if (receiver) {
+                await sendPushNotification(receiverId, 'نووسراوی نوێ', `نووسراوێکی نوێت بۆ هاتوە: ${title}`);
+            }
+
             return res.status(201).json(task);
         } catch (e) {
             return res.status(500).json({ error: e.message });

@@ -12,7 +12,15 @@ module.exports = async function handler(req, res) {
     if (req.method === 'PATCH') {
         try {
             const { status } = req.body;
+            const existingTask = await kv.hgetall(`task:${id}`);
+            
             await kv.hset(`task:${id}`, { status: status || 'done' });
+            
+            if (existingTask && (status === 'done' || !status)) {
+                const { sendPushNotification } = require('../_utils/push');
+                await sendPushNotification(existingTask.senderId, 'نووسراو تەواو بوو', `نووسراوی "${existingTask.title}" تەواو کرا.`);
+            }
+
             return res.json({ success: true });
         } catch (e) {
             return res.status(500).json({ error: e.message });

@@ -78,6 +78,8 @@ async function showLogin() {
     loginScreen.classList.add('active');
     app.style.display = 'none';
     loginError.textContent = '';
+    if ($('login-user-pass')) $('login-user-pass').value = '';
+    if ($('login-admin-pass')) $('login-admin-pass').value = '';
     loginUserSelect.innerHTML = '<option value="">چاوەڕوانە...</option>';
     try {
         const users = await API.get('/api/users');
@@ -93,6 +95,8 @@ async function showLogin() {
 function showApp() {
     loginScreen.classList.remove('active');
     app.style.display = 'flex';
+    if ($('login-user-pass')) $('login-user-pass').value = '';
+    if ($('login-admin-pass')) $('login-admin-pass').value = '';
     $('current-user-name').textContent = `بەخێربێیت، ${currentUser.name || 'ئادمین'}`;
     ['nav-hub','nav-dashboard','nav-management','nav-account'].forEach(id => $(id).style.display = 'none');
     navFab.style.display = 'none';
@@ -118,6 +122,23 @@ function showApp() {
     }
     renderProfile();
     lucide.createIcons();
+    initNotifications();
+}
+
+async function initNotifications() {
+    if (!('Notification' in window)) return;
+    try {
+        const messaging = firebase.messaging();
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            const token = await messaging.getToken({ vapidKey: 'YOUR_VAPID_KEY' });
+            if (token) {
+                await API.post('/api/users/update-token', { userId: currentUser.id, token });
+            }
+        }
+    } catch (err) {
+        console.error('Notification error:', err);
+    }
 }
 
 function setupLoginEvents() {
