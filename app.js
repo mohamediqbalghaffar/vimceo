@@ -1,6 +1,6 @@
 // ════════ STATE ════════
 const ADMIN_PASS = "Admin1234";
-let currentUser = JSON.parse(sessionStorage.getItem('cu')) || null;
+let currentUser = JSON.parse(localStorage.getItem('cu')) || null;
 let pollInterval = null;
 let currentCategoryFilter = 'تەکنیکی';
 
@@ -178,7 +178,7 @@ function setupLoginEvents() {
     $('btn-login-admin').addEventListener('click', () => {
         if ($('login-admin-pass').value === ADMIN_PASS) {
             currentUser = { id: 'admin', name: 'ئادمین', role: 'admin' };
-            sessionStorage.setItem('cu', JSON.stringify(currentUser));
+            localStorage.setItem('cu', JSON.stringify(currentUser));
             showApp();
         } else { loginError.textContent = 'تێپەڕەوشە هەڵەیە!'; }
     });
@@ -193,7 +193,7 @@ function setupLoginEvents() {
             if (!user) { loginError.textContent = 'بەکارهێنەر نەدۆزرایەوە'; return; }
             if (user.password !== pass) { loginError.textContent = 'تێپەڕەوشە هەڵەیە!'; return; }
             currentUser = user;
-            sessionStorage.setItem('cu', JSON.stringify(currentUser));
+            localStorage.setItem('cu', JSON.stringify(currentUser));
             showApp();
         } catch (e) { loginError.textContent = 'کێشەی پەیوەندی'; }
     });
@@ -201,7 +201,7 @@ function setupLoginEvents() {
     const doLogout = () => {
         if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
         currentUser = null;
-        sessionStorage.removeItem('cu');
+        localStorage.removeItem('cu');
         showLogin();
     };
     $('btn-logout').addEventListener('click', doLogout);
