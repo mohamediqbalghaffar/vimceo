@@ -27,10 +27,39 @@ messaging.onBackgroundMessage((payload) => {
   const notificationOptions = {
     body: payload.notification?.body || 'تکایە داشبۆردەکەت بپشکنە',
     icon: '/icon.png',
-    badge: '/badge.png',
-    data: payload.data, // Attach data for potential click handling
+    badge: '/icon.png',
+    data: {
+      url: self.location.origin, // Open root when clicked
+      ...(payload.data || {})
+    },
     vibrate: [200, 100, 200]
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+// Handle notification click to open the app or focus the existing tab
+self.addEventListener('notificationclick', function(event) {
+    console.log('[firebase-messaging-sw.js] Notification click Received.', event.notification.data);
+    event.notification.close();
+    
+    // The URL to open/focus (we default to origin)
+    const targetUrl = event.notification.data?.url || self.location.origin;
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(windowClients) {
+            // Check if there is already a window/tab open with the target URL
+            for (let i = 0; i < windowClients.length; i++) {
+                const client = windowClients[i];
+                // If so, just focus it
+                if (client.url === targetUrl && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            // If not, open a new window
+            if (clients.openWindow) {
+                return clients.openWindow(targetUrl);
+            }
+        })
+    );
 });

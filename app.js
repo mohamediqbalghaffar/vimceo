@@ -126,8 +126,8 @@ function showApp() {
 }
 
 async function initNotifications() {
-    if (!('Notification' in window)) {
-        console.warn('Notifications not supported in this browser');
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+        console.warn('Push Notifications are not supported in this browser');
         return;
     }
     
@@ -138,6 +138,13 @@ async function initNotifications() {
     }
 
     try {
+        // Register Service Worker explicitly
+        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        console.log('Service Worker registered with scope:', registration.scope);
+
+        // Await ready to ensure it's active before fetching token
+        await navigator.serviceWorker.ready;
+
         const messaging = firebase.messaging();
         const permission = await Notification.requestPermission();
         console.log('Notification permission:', permission);
@@ -149,7 +156,7 @@ async function initNotifications() {
                 return;
             }
             
-            const token = await messaging.getToken({ vapidKey });
+            const token = await messaging.getToken({ vapidKey, serviceWorkerRegistration: registration });
             if (token) {
                 console.log('FCM Token received:', token);
                 await API.post('/api/users/update-token', { userId: currentUser.id, token });
@@ -157,6 +164,18 @@ async function initNotifications() {
             } else {
                 console.warn('No registration token available. Request permission to generate one.');
             }
+
+            // Handle foreground messages
+            messaging.onMessage((payload) => {
+                console.log('Foreground Message received. ', payload);
+                const title = payload.notification?.title || 'نووسراوی نوێ';
+                const body = payload.notification?.body || 'تکایە داشبۆردەکەت بپشکنە';
+                showToast(`${title}: ${body}`);
+                loadTasks(); // Refresh tasks automatically
+            });
+
+        } else if (permission === 'denied') {
+             showToast('ڕێگەپێدانی ئاگادارکەرەوە ڕەتکرایەوە', 'error');
         }
     } catch (err) {
         console.error('Notification initialization failed:', err);
