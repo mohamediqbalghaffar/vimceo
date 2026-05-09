@@ -145,6 +145,15 @@ async function initNotifications() {
         console.log('Notification permission:', permission);
         
         if (permission === 'granted') {
+            // Unregister old service workers
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (let reg of registrations) {
+                if (!reg.active || !reg.active.scriptURL.endsWith('/sw.js')) {
+                    await reg.unregister();
+                    console.log('Unregistered old Service Worker');
+                }
+            }
+
             // Register Service Worker explicitly
             const registration = await navigator.serviceWorker.register('/sw.js');
             await navigator.serviceWorker.ready;
@@ -154,7 +163,14 @@ async function initNotifications() {
             const vapidRes = await API.get('/api/vapid');
             if (!vapidRes.publicKey) throw new Error('VAPID key not found');
 
-            // Subscribe to push
+            // Unsubscribe from any old subscriptions (e.g. old Firebase or old VAPID keys)
+            const existingSubscription = await registration.pushManager.getSubscription();
+            if (existingSubscription) {
+                await existingSubscription.unsubscribe();
+                console.log('Unsubscribed from old push service');
+            }
+
+            // Subscribe to push with new key
             const subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: urlB64ToUint8Array(vapidRes.publicKey)
