@@ -125,55 +125,53 @@ function showApp() {
     initNotifications();
 }
 
+function urlB64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
+    return outputArray;
+}
+
 async function initNotifications() {
-    if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
         console.warn('Push Notifications are not supported in this browser');
-        return;
-    }
-    
-    // Detect placeholders
-    if (typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey === 'YOUR_API_KEY') {
-        console.error('Firebase configuration is not set up. Please update firebase-config.js with your real credentials.');
         return;
     }
 
     try {
-        // Register Service Worker explicitly
-        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-        console.log('Service Worker registered with scope:', registration.scope);
-
-        // Await ready to ensure it's active before fetching token
-        await navigator.serviceWorker.ready;
-
-        const messaging = firebase.messaging();
         const permission = await Notification.requestPermission();
         console.log('Notification permission:', permission);
         
         if (permission === 'granted') {
-            const vapidKey = 'YOUR_VAPID_KEY'; // MUST BE UPDATED
-            if (vapidKey === 'YOUR_VAPID_KEY') {
-                console.warn('VAPID Key is missing in app.js. Push notifications will not work without it.');
-                return;
-            }
-            
-            const token = await messaging.getToken({ vapidKey, serviceWorkerRegistration: registration });
-            if (token) {
-                console.log('FCM Token received:', token);
-                await API.post('/api/users/update-token', { userId: currentUser.id, token });
-                console.log('FCM Token saved to server');
-            } else {
-                console.warn('No registration token available. Request permission to generate one.');
-            }
+            // Register Service Worker explicitly
+            const registration = await navigator.serviceWorker.register('/sw.js');
+            await navigator.serviceWorker.ready;
+            console.log('Service Worker ready');
 
-            // Handle foreground messages
-            messaging.onMessage((payload) => {
-                console.log('Foreground Message received. ', payload);
-                const title = payload.notification?.title || 'نووسراوی نوێ';
-                const body = payload.notification?.body || 'تکایە داشبۆردەکەت بپشکنە';
-                showToast(`${title}: ${body}`);
-                loadTasks(); // Refresh tasks automatically
+            // Fetch auto-generated VAPID Public Key from server
+            const vapidRes = await API.get('/api/vapid');
+            if (!vapidRes.publicKey) throw new Error('VAPID key not found');
+
+            // Subscribe to push
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlB64ToUint8Array(vapidRes.publicKey)
             });
 
+            console.log('Push subscription successful');
+            await API.post('/api/users/update-token', { userId: currentUser.id, subscription });
+
+            // Setup foreground message listener using BroadcastChannel
+            const channel = new BroadcastChannel('push-channel');
+            channel.onmessage = (event) => {
+                if (event.data && event.data.type === 'PUSH_RECEIVED') {
+                    const { title, body } = event.data.payload;
+                    showToast(`${title}: ${body}`);
+                    loadTasks(); // Refresh tasks automatically
+                }
+            };
         } else if (permission === 'denied') {
              showToast('ڕێگەپێدانی ئاگادارکەرەوە ڕەتکرایەوە', 'error');
         }

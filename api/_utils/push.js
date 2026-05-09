@@ -1,63 +1,67 @@
-const admin = require('firebase-admin');
+const webpush = require('web-push');
 const { kv } = require('@vercel/kv');
 
-// Initialize Firebase Admin
-if (!admin.apps.length) {
-    try {
-        if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-            throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is missing');
-        }
-        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount)
-        });
-        console.log('Firebase Admin initialized successfully');
-    } catch (e) {
-        console.error('Firebase Admin initialization failed:', e.message);
+// Automatically configure VAPID keys from KV or generate new ones
+let configured = false;
+async function setupWebPush() {
+    if (configured) return;
+    
+    let publicKey = await kv.get('vapid:publicKey');
+    let privateKey = await kv.get('vapid:privateKey');
+
+    if (!publicKey || !privateKey) {
+        const vapidKeys = webpush.generateVAPIDKeys();
+        publicKey = vapidKeys.publicKey;
+        privateKey = vapidKeys.privateKey;
+        await kv.set('vapid:publicKey', publicKey);
+        await kv.set('vapid:privateKey', privateKey);
+        console.log('New VAPID keys generated and saved to KV');
     }
+
+    webpush.setVapidDetails(
+        'mailto:admin@hts-vimceo.com',
+        publicKey,
+        privateKey
+    );
+    configured = true;
 }
 
 async function sendPushNotification(userId, title, body) {
-    if (!admin.apps.length) {
-        console.warn(`Cannot send push to ${userId}: Firebase Admin not initialized`);
-        return;
-    }
+    await setupWebPush();
 
     try {
-        const tokens = await kv.smembers(`tokens:${userId}`);
-        if (!tokens || tokens.length === 0) {
-            console.log(`No push tokens found for user ${userId}`);
+        const subscriptions = await kv.smembers(`tokens:${userId}`);
+        if (!subscriptions || subscriptions.length === 0) {
+            console.log(`No push subscriptions found for user ${userId}`);
             return;
         }
 
-        const message = {
-            notification: { title, body },
-            tokens: tokens
-        };
+        const payload = JSON.stringify({
+            notification: { title, body }
+        });
 
-        // Use sendEachForMulticast (FCM v1 compatible multicast)
-        const response = await admin.messaging().sendEachForMulticast(message);
-        console.log(`Push attempt for ${userId}: ${response.successCount} success, ${response.failureCount} failure`);
-        
-        // Clean up invalid tokens
-        if (response.failureCount > 0) {
-            const tokensToRemove = [];
-            response.responses.forEach((res, idx) => {
-                if (!res.success) {
-                    const errorCode = res.error?.code;
-                    if (errorCode === 'messaging/registration-token-not-registered' || errorCode === 'messaging/invalid-registration-token') {
-                        tokensToRemove.push(tokens[idx]);
-                    }
+        // Send to all subscriptions
+        const promises = subscriptions.map(async (subStr) => {
+            try {
+                const sub = JSON.parse(subStr);
+                await webpush.sendNotification(sub, payload);
+            } catch (err) {
+                if (err.statusCode === 404 || err.statusCode === 410) {
+                    // Subscription expired or invalid, remove it
+                    await kv.srem(`tokens:${userId}`, subStr);
+                    console.log('Removed invalid subscription');
+                } else {
+                    console.error('Push error:', err);
                 }
-            });
-            if (tokensToRemove.length > 0) {
-                await Promise.all(tokensToRemove.map(t => kv.srem(`tokens:${userId}`, t)));
-                console.log(`Cleaned up ${tokensToRemove.length} invalid tokens for ${userId}`);
             }
-        }
+        });
+
+        await Promise.all(promises);
+        console.log(`Push attempt for ${userId} completed`);
+        
     } catch (e) {
         console.error(`Error in sendPushNotification for ${userId}:`, e);
     }
 }
 
-module.exports = { sendPushNotification };
+module.exports = { sendPushNotification, setupWebPush };
