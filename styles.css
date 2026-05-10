@@ -282,6 +282,7 @@ body, button, input, select, textarea, label {
 .profile-task-title { font-size:1rem; color:var(--text); }
 .profile-task-meta { display:flex; align-items:center; gap:10px; font-size:0.75rem; color:var(--muted); }
 
+.bottom-nav {
     position:fixed; bottom:0; left:0; width:100%;
     height:calc(var(--nav-h) + var(--safe-bottom));
     padding-bottom:var(--safe-bottom);
