@@ -247,6 +247,16 @@ body, button, input, select, textarea, label {
 .badge-sender { background:var(--success); }
 .badge-receiver { background:#7c3aed; }
 .badge-admin { background:var(--accent); }
+.profile-avatar-actions { display:flex; gap:12px; margin-top:-5px; z-index:10; }
+.avatar-btn {
+    width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; border:1px solid var(--border); background:var(--surface); box-shadow:var(--shadow-sm);
+    transition:transform 0.2s; color:var(--muted);
+}
+.avatar-btn:active { transform:scale(0.9); }
+.avatar-btn.btn-edit { color:var(--accent); }
+.avatar-btn.btn-delete { color:var(--error); }
+.avatar-btn i { width:18px; height:18px; }
 .profile-name { font-size:1.5rem; margin-top:8px; }
 .profile-role-text { color:var(--muted); font-size:0.95rem; }
 .profile-stats { display:flex; gap:20px; margin-top:20px; }

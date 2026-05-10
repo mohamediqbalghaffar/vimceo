@@ -8,6 +8,21 @@ module.exports = async function handler(req, res) {
 
     const { id } = req.query;
 
+    if (req.method === 'PATCH') {
+        try {
+            const updates = req.body;
+            const existingUser = await kv.hgetall(`user:${id}`);
+            if (!existingUser) return res.status(404).json({ error: 'User not found' });
+            
+            const updatedUser = { ...existingUser, ...updates };
+            await kv.hset(`user:${id}`, updatedUser);
+            
+            return res.json({ success: true, user: updatedUser });
+        } catch (e) {
+            return res.status(500).json({ error: e.message });
+        }
+    }
+
     if (req.method === 'DELETE') {
         try {
             await kv.del(`user:${id}`);

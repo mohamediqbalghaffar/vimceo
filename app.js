@@ -41,6 +41,7 @@ window.addEventListener('DOMContentLoaded', () => {
     setupAdminEvents();
     setupSenderEvents();
     setupModalEvents();
+    setupProfileEvents();
     setTimeout(() => {
         splashScreen.style.opacity = '0';
         splashScreen.style.transition = 'opacity 0.4s';
@@ -259,16 +260,22 @@ async function loadUsers() {
     try {
         const users = await API.get('/api/users');
         if (!users.length) { accountList.innerHTML = '<div class="empty-state"><p>هیچ بەکارهێنەرێک نییە</p></div>'; return; }
-        accountList.innerHTML = users.map(u => `
+        accountList.innerHTML = users.map(u => {
+            const avatarSrc = u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=random&color=fff&size=64`;
+            return `
             <div class="account-item">
-                <div class="account-item-info">
-                    <strong>${u.name}</strong>
-                    <small>${u.role === 'sender' ? 'نێرەر' : 'وەرگر'}</small>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <img src="${avatarSrc}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;" alt="">
+                    <div class="account-item-info">
+                        <strong>${u.name}</strong>
+                        <small>${u.role === 'sender' ? 'نێرەر' : 'وەرگر'}</small>
+                    </div>
                 </div>
                 <button class="account-del-btn" onclick="deleteUser('${u.id}','${u.name}')">
                     <i data-lucide="trash-2"></i>
                 </button>
-            </div>`).join('');
+            </div>`;
+        }).join('');
         lucide.createIcons();
     } catch (e) { accountList.innerHTML = '<div class="empty-state"><p>کێشەی بارکردن</p></div>'; }
 }
@@ -392,16 +399,17 @@ async function renderDashboard(tasks) {
         lucide.createIcons(); return;
     }
 
-    // Fetch all user names
+    // Fetch all users
     const allUsers = await API.get('/api/users');
     const userMap = {};
-    allUsers.forEach(u => userMap[u.id] = u.name);
+    allUsers.forEach(u => userMap[u.id] = u);
 
     const rows = filteredTasks.map((task, idx) => {
         const isLast = idx === tasks.length - 1;
         const tagClass = task.category === 'تەکنیکی' ? 'tech' : 'admin';
         const time = new Date(Number(task.createdAt)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        const avatarName = currentUser.role === 'sender' ? (userMap[task.receiverId] || '?') : (userMap[task.senderId] || '?');
+        const otherUser = currentUser.role === 'sender' ? (userMap[task.receiverId] || {name: '?'}) : (userMap[task.senderId] || {name: '?'});
+        const avatarSrc = otherUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(otherUser.name)}&background=random&color=fff&size=64`;
         const deleteBtn = currentUser.role === 'sender'
             ? `<button class="card-delete-btn" onclick="deleteTask('${task.id}')"><i data-lucide="trash-2"></i></button>` : '';
         const checkbox = currentUser.role === 'receiver' && task.status !== 'done'
@@ -429,7 +437,7 @@ async function renderDashboard(tasks) {
                         <div style="display:flex;align-items:center;gap:8px;">
                             ${statusBadge}
                             <div class="avatars">
-                                <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(avatarName)}&background=random&color=fff&size=64" alt="">
+                                <img src="${avatarSrc}" alt="">
                             </div>
                         </div>
                     </div>
@@ -473,7 +481,7 @@ function renderProfile() {
     const name = currentUser.name || 'ئادمین';
     $('profile-name').textContent = name;
     $('profile-role').textContent = roleMap[currentUser.role] || currentUser.role;
-    $('profile-avatar').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0f2c25&color=fff&size=200`;
+    $('profile-avatar').src = currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0f2c25&color=fff&size=200`;
     const badge = $('profile-role-badge');
     badge.className = 'profile-avatar-badge';
     badge.classList.add(currentUser.role === 'sender' ? 'badge-sender' : currentUser.role === 'receiver' ? 'badge-receiver' : 'badge-admin');
@@ -489,5 +497,68 @@ function renderProfileStats(tasks) {
         const pending = tasks.filter(t => t.status === 'pending').length, done = tasks.filter(t => t.status === 'done').length;
         el.innerHTML = `<div class="stat-box"><div class="stat-num">${pending}</div><div class="stat-label">چاوەڕوان</div></div>
                         <div class="stat-box"><div class="stat-num">${done}</div><div class="stat-label">تەواوکراو</div></div>`;
+    }
+}
+
+function setupProfileEvents() {
+    const avatarUpload = $('avatar-upload');
+    const btnDeleteAvatar = $('btn-delete-avatar');
+
+    if (avatarUpload) {
+        avatarUpload.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = async () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_SIZE = 300;
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > height) {
+                        if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
+                    } else {
+                        if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
+                    }
+                    canvas.width = width; canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+                    try {
+                        showToast('خەریکی گۆڕین...');
+                        const res = await API.patch(`/api/users/${currentUser.id}`, { avatar: dataUrl });
+                        if (res.success) {
+                            currentUser.avatar = dataUrl;
+                            localStorage.setItem('cu', JSON.stringify(currentUser));
+                            renderProfile();
+                            showToast('وێنە گۆڕدرا ✓');
+                        }
+                    } catch(err) {
+                        showToast('هەڵە لە گۆڕین', 'error');
+                    }
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    if (btnDeleteAvatar) {
+        btnDeleteAvatar.addEventListener('click', async () => {
+            if (!confirm('ئایا دڵنیای لە سڕینەوەی وێنەی پڕۆفایل؟')) return;
+            try {
+                const res = await API.patch(`/api/users/${currentUser.id}`, { avatar: null });
+                if (res.success) {
+                    currentUser.avatar = null;
+                    localStorage.setItem('cu', JSON.stringify(currentUser));
+                    renderProfile();
+                    showToast('وێنە سڕایەوە ✓');
+                }
+            } catch(err) {
+                showToast('هەڵە لە سڕینەوە', 'error');
+            }
+        });
     }
 }
