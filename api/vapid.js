@@ -1,19 +1,17 @@
 const { kv } = require('@vercel/kv');
+const { setupWebPush } = require('./_utils/push');
 
 module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') return res.status(200).end();
 
-    if (req.method === 'POST') {
-        const { userId, subscription } = req.body;
-        if (!userId || !subscription) return res.status(400).json({ error: 'Missing data' });
-        
+    if (req.method === 'GET') {
         try {
-            // Save subscription to user's tokens set
-            await kv.sadd(`tokens:${userId}`, JSON.stringify(subscription));
-            return res.json({ success: true });
+            await setupWebPush();
+            const publicKey = await kv.get('vapid:publicKey');
+            return res.json({ publicKey });
         } catch (e) {
             return res.status(500).json({ error: e.message });
         }
