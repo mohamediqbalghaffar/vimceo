@@ -465,12 +465,29 @@ window.deleteTask = async (id) => {
 
 // ════════ MODALS ════════
 function setupModalEvents() {
-    $('modal-cancel').addEventListener('click', () => { $('modal-backdrop').classList.add('hidden'); activeTaskId = null; });
+    $('modal-cancel').addEventListener('click', () => { 
+        $('modal-backdrop').classList.add('hidden'); 
+        activeTaskId = null;     
+    });
+    
+    const btnCloseProfileTasks = $('btn-close-profile-tasks');
+    if (btnCloseProfileTasks) {
+        btnCloseProfileTasks.addEventListener('click', () => {
+            $('modal-profile-tasks').classList.add('hidden');
+        });
+    }
+
     $('modal-confirm').addEventListener('click', async () => {
         if (!activeTaskId) return;
-        try { await API.patch(`/api/tasks/${activeTaskId}`, { status: 'done' }); showToast('تەواوکرا ✓'); loadTasks(); }
-        catch (e) { showToast('هەڵە', 'error'); }
-        $('modal-backdrop').classList.add('hidden'); activeTaskId = null;
+        try { 
+            await API.patch(`/api/tasks/${activeTaskId}`, { status: 'done' }); 
+            showToast('تەواوکرا ✓'); 
+            loadTasks(); 
+        } catch (e) { 
+            showToast('هەڵە', 'error'); 
+        }
+        $('modal-backdrop').classList.add('hidden'); 
+        activeTaskId = null;
     });
 }
 
@@ -489,14 +506,15 @@ function renderProfile() {
 
 function renderProfileStats(tasks) {
     const el = $('profile-stats'); if (!el) return;
+    window.currentProfileTasks = tasks; 
     if (currentUser.role === 'sender') {
         const total = tasks.length, done = tasks.filter(t => t.status === 'done').length;
-        el.innerHTML = `<div class="stat-box"><div class="stat-num">${total}</div><div class="stat-label">کۆی نووسراوەکان</div></div>
-                        <div class="stat-box"><div class="stat-num">${done}</div><div class="stat-label">تەواوکراوەکان</div></div>`;
+        el.innerHTML = `<div class="stat-box clickable" onclick="openProfileTasksModal('all')"><div class="stat-num">${total}</div><div class="stat-label">کۆی نووسراوەکان</div></div>
+                        <div class="stat-box clickable" onclick="openProfileTasksModal('done')"><div class="stat-num">${done}</div><div class="stat-label">تەواوکراوەکان</div></div>`;
     } else if (currentUser.role === 'receiver') {
-        const pending = tasks.filter(t => t.status === 'pending').length, done = tasks.filter(t => t.status === 'done').length;
-        el.innerHTML = `<div class="stat-box"><div class="stat-num">${pending}</div><div class="stat-label">چاوەڕوان</div></div>
-                        <div class="stat-box"><div class="stat-num">${done}</div><div class="stat-label">تەواوکراو</div></div>`;
+        const pending = tasks.filter(t => t.status !== 'done').length, done = tasks.filter(t => t.status === 'done').length;
+        el.innerHTML = `<div class="stat-box clickable" onclick="openProfileTasksModal('pending')"><div class="stat-num">${pending}</div><div class="stat-label">چاوەڕوان</div></div>
+                        <div class="stat-box clickable" onclick="openProfileTasksModal('done')"><div class="stat-num">${done}</div><div class="stat-label">تەواوکراو</div></div>`;
     }
 }
 
@@ -562,3 +580,52 @@ function setupProfileEvents() {
         });
     }
 }
+
+window.openProfileTasksModal = (filterType) => {
+    const tasks = window.currentProfileTasks || [];
+    let filtered = [];
+    let title = '';
+
+    if (filterType === 'all') {
+        filtered = tasks;
+        title = 'کۆی نووسراوەکان';
+    } else if (filterType === 'done') {
+        filtered = tasks.filter(t => t.status === 'done');
+        title = 'تەواوکراوەکان';
+    } else if (filterType === 'pending') {
+        filtered = tasks.filter(t => t.status !== 'done');
+        title = 'چاوەڕوان';
+    }
+
+    $('profile-tasks-title').textContent = title;
+    const listContainer = $('profile-tasks-list');
+    
+    if (filtered.length === 0) {
+        listContainer.innerHTML = `<div class="empty-state"><p>هیچ نووسراوێک نییە</p></div>`;
+    } else {
+        listContainer.innerHTML = filtered.map(task => {
+            const time = new Date(Number(task.createdAt)).toLocaleDateString('en-US') + ' ' + new Date(Number(task.createdAt)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            const tagClass = task.category === 'تەکنیکی' ? 'tech' : 'admin';
+            const statusBadge = task.status === 'done' 
+                ? `<span class="card-status-badge status-done">تەواوکرا</span>` 
+                : `<span class="card-status-badge status-pending">چاوەڕوان</span>`;
+            const linkBtn = task.link ? `<a href="${task.link}" target="_blank" rel="noopener" class="card-link-btn" style="margin-top:0; padding:4px 8px; font-size:0.75rem;"><i data-lucide="external-link"></i></a>` : '';
+            
+            return `
+            <div class="profile-task-item">
+                <div class="profile-task-top">
+                    <span class="profile-task-title">${task.title}</span>
+                    ${statusBadge}
+                </div>
+                <div class="profile-task-meta">
+                    <span class="pill-tag ${tagClass}" style="padding:2px 8px;"><span class="dot"></span>${task.category}</span>
+                    <span>${time}</span>
+                    ${linkBtn}
+                </div>
+            </div>`;
+        }).join('');
+    }
+    
+    $('modal-profile-tasks').classList.remove('hidden');
+    lucide.createIcons();
+};

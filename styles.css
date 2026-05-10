@@ -266,8 +266,22 @@ body, button, input, select, textarea, label {
 }
 .stat-box .stat-num { font-size:1.8rem; color:var(--accent); }
 .stat-box .stat-label { font-size:0.75rem; color:var(--muted); }
-/* ── Bottom Nav ── */
-.bottom-nav {
+.stat-box.clickable { cursor:pointer; transition:transform 0.2s; position:relative; }
+.stat-box.clickable:active { transform:scale(0.95); }
+.stat-box.clickable::after { 
+    content:'\e96c'; font-family:'lucide'; position:absolute; top:8px; right:8px; 
+    font-size:0.7rem; opacity:0.2; 
+}
+
+.profile-task-item {
+    background:var(--surface); border:1px solid var(--border);
+    padding:14px 16px; border-radius:14px; display:flex; 
+    flex-direction:column; gap:8px; text-align:right;
+}
+.profile-task-top { display:flex; justify-content:space-between; align-items:center; }
+.profile-task-title { font-size:1rem; color:var(--text); }
+.profile-task-meta { display:flex; align-items:center; gap:10px; font-size:0.75rem; color:var(--muted); }
+
     position:fixed; bottom:0; left:0; width:100%;
     height:calc(var(--nav-h) + var(--safe-bottom));
     padding-bottom:var(--safe-bottom);
