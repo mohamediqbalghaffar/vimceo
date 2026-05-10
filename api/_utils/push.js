@@ -1,62 +1,41 @@
-const admin = require('firebase-admin');
+const webpush = require('web-push');
 const { kv } = require('@vercel/kv');
 
-// Initialize Firebase Admin
-if (!admin.apps.length) {
-    try {
-        if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-            throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is missing');
-        }
-        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount)
-        });
-        console.log('Firebase Admin initialized successfully');
-    } catch (e) {
-        console.error('Firebase Admin initialization failed:', e.message);
-    }
-}
+// Initialize Web Push with VAPID keys
+webpush.setVapidDetails(
+  'mailto:admin@example.com',
+  'BALnkoqXlHVQ2J3hBAhBczs0KEGJ7OE2321BBtB1ZUdpExSYyDKXQcOBllaXdUyULF-oseQ8sUQxGKmzeuKA_3o',
+  'd1lP78SNo_qt3oZis-Av2b7D1IdkMUegZaO6F8XmDOo'
+);
 
 async function sendPushNotification(userId, title, body) {
-    if (!admin.apps.length) {
-        console.warn(`Cannot send push to ${userId}: Firebase Admin not initialized`);
-        return;
-    }
-
     try {
         const tokens = await kv.smembers(`tokens:${userId}`);
         if (!tokens || tokens.length === 0) {
-            console.log(`No push tokens found for user ${userId}`);
+            console.log(`No push subscriptions found for user ${userId}`);
             return;
         }
 
-        const message = {
-            notification: { title, body },
-            tokens: tokens
-        };
+        const payload = JSON.stringify({ title, body });
 
-        // Use sendEachForMulticast (FCM v1 compatible multicast)
-        const response = await admin.messaging().sendEachForMulticast(message);
-        console.log(`Push attempt for ${userId}: ${response.successCount} success, ${response.failureCount} failure`);
-        
-        // Clean up invalid tokens
-        if (response.failureCount > 0) {
-            const tokensToRemove = [];
-            response.responses.forEach((res, idx) => {
-                if (!res.success) {
-                    const errorCode = res.error?.code;
-                    if (errorCode === 'messaging/registration-token-not-registered' || errorCode === 'messaging/invalid-registration-token') {
-                        tokensToRemove.push(tokens[idx]);
-                    }
+        const promises = tokens.map(async (tokenStr) => {
+            try {
+                // Parse the stringified PushSubscription object
+                const sub = typeof tokenStr === 'string' ? JSON.parse(tokenStr) : tokenStr;
+                await webpush.sendNotification(sub, payload);
+            } catch (err) {
+                console.error('Failed to send push:', err.message);
+                // Clean up invalid subscriptions
+                if (err.statusCode === 410 || err.statusCode === 404) {
+                    await kv.srem(`tokens:${userId}`, tokenStr);
                 }
-            });
-            if (tokensToRemove.length > 0) {
-                await Promise.all(tokensToRemove.map(t => kv.srem(`tokens:${userId}`, t)));
-                console.log(`Cleaned up ${tokensToRemove.length} invalid tokens for ${userId}`);
             }
-        }
+        });
+
+        await Promise.all(promises);
+        console.log(`Push attempt for ${userId} finished.`);
     } catch (e) {
-        console.error(`Error in sendPushNotification for ${userId}:`, e);
+        console.error('Push notification outer error:', e.message);
     }
 }
 

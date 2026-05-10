@@ -125,37 +125,43 @@ function showApp() {
     initNotifications();
 }
 
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
 async function initNotifications() {
-    if (!('Notification' in window)) {
-        console.warn('Notifications not supported in this browser');
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+        console.warn('Push notifications not supported in this browser');
         return;
     }
     
-    // Detect placeholders
-    if (typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey === 'YOUR_API_KEY') {
-        console.error('Firebase configuration is not set up. Please update firebase-config.js with your real credentials.');
-        return;
-    }
-
     try {
-        const messaging = firebase.messaging();
         const permission = await Notification.requestPermission();
         console.log('Notification permission:', permission);
         
         if (permission === 'granted') {
-            const vapidKey = 'YOUR_VAPID_KEY'; // MUST BE UPDATED
-            if (vapidKey === 'YOUR_VAPID_KEY') {
-                console.warn('VAPID Key is missing in app.js. Push notifications will not work without it.');
-                return;
-            }
+            const reg = await navigator.serviceWorker.register('/sw.js');
+            console.log('Service Worker registered');
             
-            const token = await messaging.getToken({ vapidKey });
-            if (token) {
-                console.log('FCM Token received:', token);
-                await API.post('/api/users/update-token', { userId: currentUser.id, token });
-                console.log('FCM Token saved to server');
-            } else {
-                console.warn('No registration token available. Request permission to generate one.');
+            const publicVapidKey = 'BALnkoqXlHVQ2J3hBAhBczs0KEGJ7OE2321BBtB1ZUdpExSYyDKXQcOBllaXdUyULF-oseQ8sUQxGKmzeuKA_3o';
+            const subscription = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+            });
+            
+            if (subscription) {
+                await API.post('/api/users/update-token', { 
+                    userId: currentUser.id, 
+                    token: JSON.stringify(subscription) 
+                });
+                console.log('Native Push Subscription saved to server');
             }
         }
     } catch (err) {
